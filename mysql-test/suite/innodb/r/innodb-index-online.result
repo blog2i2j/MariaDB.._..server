@@ -175,8 +175,8 @@ connection con1;
 ERROR 70100: Query execution was interrupted
 SELECT name, count FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE subsystem = 'ddl';
 name	count
-ddl_background_drop_indexes	0
-ddl_online_create_index	0
+ddl_background_drop_indexes	1
+ddl_online_create_index	1
 ddl_pending_alter_table	0
 ddl_sort_file_alter_table	0
 ddl_log_file_alter_table	0

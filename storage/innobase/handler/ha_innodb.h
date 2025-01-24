@@ -101,6 +101,14 @@ public:
 
 	int open(const char *name, int mode, uint test_if_locked) override;
 
+	/** Fetch or recalculate InnoDB table statistics */
+	dberr_t statistics_init(dict_table_t *table, bool recalc);
+
+	/** Register InnoDB_share(table) so that statistics will be
+	deinitialized on the last close().
+	@param table	referenced table with persistent statistics */
+	void innodb_share_register(dict_table_t &table) noexcept;
+
 	handler* clone(const char *name, MEM_ROOT *mem_root) override;
 
 	int close(void) override;
@@ -942,3 +950,13 @@ ib_push_frm_error(
 @return true if index column length exceeds limit */
 MY_ATTRIBUTE((warn_unused_result))
 bool too_big_key_part_length(size_t max_field_len, const KEY& key);
+
+class InnoDB_share final : public Handler_share
+{
+  /** InnoDB table that contains persistent statistics */
+  dict_table_t *table;
+public:
+  InnoDB_share(dict_table_t *table) noexcept : table(table)
+  { table->acquire(); }
+  ~InnoDB_share() noexcept override;
+};
