@@ -47,7 +47,7 @@ row_quiesce_write_index_fields(
 	FILE*			file,	/*!< in: file to write to */
 	THD*			thd)	/*!< in/out: session */
 {
-	byte			row[sizeof(ib_uint32_t) * 2];
+	byte			row[sizeof(ib_uint32_t) * 3];
 
 	for (ulint i = 0; i < index->n_fields; ++i) {
 		byte*			ptr = row;
@@ -56,30 +56,24 @@ row_quiesce_write_index_fields(
 		mach_write_to_4(ptr, field->prefix_len);
 		ptr += sizeof(ib_uint32_t);
 
-		mach_write_to_4(ptr, field->fixed_len);
-
-		DBUG_EXECUTE_IF("ib_export_io_write_failure_9",
-				close(fileno(file)););
-
-		if (fwrite(row, 1, sizeof(row), file) != sizeof(row)) {
-
-			ib_senderrf(
-				thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR,
-				(ulong) errno, strerror(errno),
-				"while writing index fields.");
-
-			return(DB_IO_ERROR);
-		}
+		/* Since maximum fixed length can be
+		DICT_ANTELOPE_MAX_INDEX_COL_LEN, InnoDB
+		can use the 0th bit to store the
+		field descending information */
+		mach_write_to_4(ptr, field->fixed_len
+				     | uint32_t(field->descending) << 31);
+		ptr += sizeof(ib_uint32_t);
 
 		const char* field_name = field->name ? field->name : "";
 		/* Include the NUL byte in the length. */
-		ib_uint32_t	len = static_cast<ib_uint32_t>(strlen(field_name) + 1);
-		mach_write_to_4(row, len);
+		ib_uint32_t	len =
+		  static_cast<ib_uint32_t>(strlen(field_name) + 1);
+		mach_write_to_4(ptr, len);
 
 		DBUG_EXECUTE_IF("ib_export_io_write_failure_10",
 				close(fileno(file)););
 
-		if (fwrite(row, 1,  sizeof(len), file) != sizeof(len)
+		if (fwrite(row, 1, sizeof(row), file) != sizeof(row)
 		    || fwrite(field_name, 1, len, file) != len) {
 
 			ib_senderrf(

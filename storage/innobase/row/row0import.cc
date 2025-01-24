@@ -1213,6 +1213,18 @@ row_import::match_index_columns(
 
 			err = DB_ERROR;
 		}
+
+		if (cfg_field->descending != field->descending) {
+			ib_errf(thd, IB_LOG_LEVEL_ERROR,
+				ER_TABLE_SCHEMA_MISMATCH,
+				"Index %s field %s is %s which does "
+				"not match wth .cfg file",
+				index->name(), field->name(),
+				field->descending
+				  ? "descending"
+				  : "ascending");
+			err = DB_ERROR;
+		}
 	}
 
 	return(err);
@@ -2557,7 +2569,13 @@ row_import_cfg_read_index_fields(
 		field->prefix_len = mach_read_from_4(ptr) & ((1U << 12) - 1);
 		ptr += sizeof(ib_uint32_t);
 
-		field->fixed_len = mach_read_from_4(ptr) & ((1U << 10) - 1);
+		uint32_t fixed_len = mach_read_from_4(ptr);
+
+		if (fixed_len >> 31) {
+			field->descending = 1;
+		}
+
+		field->fixed_len = fixed_len & ((1U << 10) - 1);
 		ptr += sizeof(ib_uint32_t);
 
 		/* Include the NUL byte in the length. */
